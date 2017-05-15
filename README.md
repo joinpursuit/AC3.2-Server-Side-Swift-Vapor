@@ -131,7 +131,9 @@ drop.get("cats") { (request: Request) in
 
 Now if we run and go to `locahost:8080/cats` we can verify that we can see our text!
 
-More common than returning a string from an API is returning some JSON. Vapor has a built in class, JSON that essentially acts as a wrapper on dictionaries (it's very similar to the JSON serialization we've done). So instead of returning a single string, let's return a JSON response:
+![All the cats!](./Images/get_all_cats.png)
+
+More common than returning a string from an API is returning some `JSON`. Vapor has a built in class, `JSON`, that essentially acts as a wrapper on dictionaries (it's very similar to the `JSON` de/serialization we've done). So instead of returning a single string, let's return a `JSON` response:
 
 ```swift
 // creates a /cats route
@@ -142,6 +144,8 @@ drop.get("cats") { (request: Request) in
 ```
 
 We mark the return with `try` because the conversion to `JSON` can throw (just like in our practice of serialization). This is pretty neat on its own, but it becomes more salient what is happening if we run the request through Postman. Go ahead and try that now. 
+
+![JSON cats!](./Images/get_all_cats_json.png)
 
 ### Looking for Specific Cats (Parameterization)
 
@@ -161,6 +165,8 @@ drop.get("cats", "2") { (request: Request) in
 }
 ```
 
+![Many cat members](./Images/get_cat_with_id.png)
+
 But that would take up too much time to do for each cat. So instead, we create a parameterized method call: 
 
 ```swift
@@ -173,7 +179,18 @@ drop.get("cats", ":id") { (request: Request) in
 }
 ```
 
-There are a number of propers on the `request` object that can be checked for different bits of information that correspond to parameters we'd pass in code when constructing our Swift `URL` object. In this case, we're constructing something that will look like `localhost:8080/cats/<int>`. We check the `parameters` property of `request` and look for a `key` of `id`, which corresponds to the second string parameter we passed in the `get` call. 
+There are a number of properties on the `request` object that can be checked for different bits of information that correspond to parameters/queries/headers/etc we'd pass in code when constructing our Swift `URL` object. In this case, we're constructing something that will look like `localhost:8080/cats/<int>`. We check the `parameters` property of `request` and look for a `key` of `id`, which corresponds to the second string parameter we passed in the `get` call. 
+
+![Any Cat with an ID](./Images/get_cat_param_id.png)
+
+Vapor gives us another option to ensure type safety: 
+
+```swift
+// in this version, you specify the parameter type and include a var for it in the closure
+drop.get("cats", Int.self) { (request: Request, id: Int) in 
+	return "The cat id is \(id)"
+}
+```
 
 This also gives us the opportunity to look at the errors we can throw. There are a large number of built-in errors that can be utilized to indicate that a problem has occured, and Vapor allows for you to create your own custom ones as well. 
 
@@ -183,22 +200,13 @@ drop.get("cats-error") { (request: Request) in
 }
 ```
 
+![Error getting cats!! NOOOO](./Images/get_cat-error.png)
+
 ### Models
 
 If you're thinking that we'll probably need to define a model for our theoretical `Cats` object... well, I guess I taught you well :D
 
-In order to build up to, and understand the `Model` protocol, we need to begin with the `StringInitializable` and `NodeRepresentable` protocols
-
-#### `StringInitializable`
-
-This is a very straightforward protocol with a single method `init?(from string:)` and it exists in order to ensure that an object can be passed as a requirement to Vapor's type-safe route calls. What this means is that if you need to create a route, you need to ensure that you define that route using something that conforms to this protocol (`Int` and `String` are extended for you).
-
-```swift
-// both parameters in get() are `StringInitializable`
-drop.get("cats", "2") { (request: Request) in
-  return "The cat id is \(2)"
-}
-```
+In order to build up to, and understand the `Model` protocol, we need to begin with the `NodeRepresentable`, `JSONRepresentable` and `ResponseRepresentable` protocols
 
 #### `NodeRepresentable`
 
@@ -213,4 +221,173 @@ What is a `Node`? Glad you asked:
 
 > Node is meant to be a transitive data structure that can be used to facilitate conversions between different types. 
 
-It's an object that we can convert between `Bool`, `Int`, `String`, `Array`, etc. easily if needed/possible.
+It's an object that we can convert between `Bool`, `Int`, `String`, `Array`, etc. easily if needed/possible. Let's try conforming to this protocol. 
+
+1. Create a new Swift file, named `Cats`
+2. Selected the app's executable target for the file
+3. Place it in the `/Sources/App/Models` folder
+4. Import `Vapor` and `HTTP`
+
+![](./Images/vapor_add_target.png)
+
+We'll give the `Cat` class three properties: `name`, `breed`, and `preferredSnack`. Creating the `Node` is straightforward since it is overloaded to accept dictionary literals:
+
+```swift 
+import Foundation
+import Vapor
+import HTTP
+
+class Cat: NodeRepresentable {
+  var name: String!
+  var breed: String!
+  var preferredSnack: String!
+  
+  init(name: String, breed: String, preferredSnack: String) {
+    self.name = name
+    self.breed = breed
+    self.preferredSnack = preferredSnack
+  }
+  
+  func makeNode() throws -> Node {
+    return try Node(node: ["name": self.name,
+                           "breed": self.breed,
+                           "preferredSnack": self.preferredSnack])
+  }
+  
+  func makeNode(context: Context) throws -> Node {
+    return try makeNode()
+  }
+}
+```
+
+> Ignore the `Context` parameter for now. It's there to allow easy extensibility for other modules
+
+And back in our `main.swift` file, add in:
+
+```swift
+drop.get("cats", "mittens") { request in
+  return try JSON(node: Cat(name: "Mittens", breed: "American Shorthair", preferredSnack: "Chicken"))
+}
+```
+
+Now run and check `localhost:8080/cats/mittens`. 
+
+![](./Images/chrome_cat_mittens.png)
+
+The reason we need to wrap up the Cat object in a JSON initialization is that the close expects to return an object of type `ResponseRepresentable`, which `JSON` conforms to but `NodeRepresentable` does not. 
+
+#### `JSONRepresentable`
+
+Fortunately, we can get `JSONRepresentable` for free as long as we conform to `NodeConvertible` as well (an extension gives a default implementation for cases were `Self: NodeRepresentable`). What does that mean for us? A tiny bit less code: 
+
+```swift
+drop.get("cats", "mittens") { request in
+  return try Cat(name: "Mittens", breed: "American Shorthair", preferredSnack: "Chicken").makeJSON()
+}
+```
+
+#### `ResponseRepresentable`
+
+OK we're almost there!
+
+>> Its the final countdown.gif
+
+Got a sense for naming conventions in the Vapor library by now? You should, it's all about how data can be represented that ensure the kind of guarantees we need. Each `xxxxxRepresentable` ensures that the object can behave in ways that the library expects. In this case, `ResponseRepresentable` ensures that we can have a `Response` object, which is directly analogous to an `HTTP` response we'd get in Postman or an `HTTPURLResponse` object in Swift. 
+
+Here's the best part though: something that is `JSONRepresentable` has a `.makeResponse()` function that returns a `Response`! So for our class, after saying we conform to `ResponseRepresentable`, we just need to one necessary function to `Cat.swift`:
+
+```swift
+  func makeResponse() throws -> Response {
+    return try self.makeJSON().makeResponse()
+  }
+ ```
+
+And for our code we can simply say: 
+
+```swift
+drop.get("cats", "mittens") { request in
+  return Cat(name: "Mittens", breed: "American Shorthair", preferredSnack: "Chicken")
+}
+```
+
+Neat!
+
+---
+
+### `POST` Requests
+
+Great, we know how to request data back from our API, but we'll likely need to `POST` some up as well. For now, we're just going to make it work and in the future we'll take a look at persistant storage. 
+
+#### Request info
+
+You can inspect the `Request` object for query params, header info, body info etc.. the way this is tested is via Postman (just be sure to set breakpoints ahead of time before you build/run). In our case, we're going to pass in some values via a `Request`'s `httpBody` and check for their existance in our `Droplet` closure. 
+
+Setting up a `POST` endpoint is similar to `GET` and we can test the results via Postman: 
+
+```swift
+drop.post("cats") { (request: Request) in
+  return "You're posting cats"
+}
+```
+
+![](./Images/postman_youre_posting_cats.png)
+
+Now that making the request works, let's start unpacking data by first checking to see if in the `JSON` body that was passed in the request has a key named `name`:
+
+![](./Images/postman_posting_mittens_name.png)
+
+```swift
+drop.post("cats") { (request: Request) in
+  
+  guard let catName = request.json?["name"]?.string else {
+    throw Abort.badRequest
+  }
+
+  return "Cat name was: \(catName)"
+}
+```
+
+![](./Images/postman_post_response_mittens.png)
+
+Assuming we want to create a fully-fledged `Cat` that meets our model's needs, let's pass more key-value pairs in the body and look for them: 
+
+```swift
+drop.post("cats") { (request: Request) in
+  
+  guard let catName = request.json?["name"]?.string,
+        let catBreed = request.json?["breed"]?.string,
+        let snack = request.json?["preferredSnack"]?.string
+  else {
+    throw Abort.badRequest
+  }
+  
+  let newCat = Cat(name: catName, breed: catBreed, preferredSnack: snack)
+  let responseCat = try newCat.makeResponse()
+  
+  print("Cat successfully posted: \(responseCat)")
+  
+  return responseCat
+}
+```
+
+![](./Images/postman_full_cat_json_body.png)
+![](./Images/postman_post_response_full_cat.png)
+![](./Images/xcode_print_cat_response.png)
+
+**Neat!!**
+
+---
+
+### Next Time:
+
+1. Redirects
+2. Groups
+3. Validation
+1. Leaf
+
+### Next Next Time:
+
+4. Dependencies
+5. Database Options
+2. CRUD Actions
+3. Deploying
