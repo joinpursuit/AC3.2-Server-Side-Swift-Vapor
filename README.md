@@ -228,7 +228,7 @@ It's an object that we can convert between `Bool`, `Int`, `String`, `Array`, etc
 3. Place it in the `/Sources/App/Models` folder
 4. Import `Vapor` and `HTTP`
 
-![](./Images/vapor_add_target.png)
+![](./Images/xcode_add_target.png)
 
 We'll give the `Cat` class three properties: `name`, `breed`, and `preferredSnack`. Creating the `Node` is straightforward since it is overloaded to accept dictionary literals:
 
@@ -272,7 +272,7 @@ drop.get("cats", "mittens") { request in
 
 Now run and check `localhost:8080/cats/mittens`. 
 
-![](./Images/chrome_cat_mittens.png)
+![](./Images/chrome_cats_mittens.png)
 
 The reason we need to wrap up the Cat object in a JSON initialization is that the close expects to return an object of type `ResponseRepresentable`, which `JSON` conforms to but `NodeRepresentable` does not. 
 
@@ -290,7 +290,7 @@ drop.get("cats", "mittens") { request in
 
 OK we're almost there!
 
->> Its the final countdown.gif
+![](http://media.tumblr.com/tumblr_m0p1k1mL831qeofff.gif)
 
 Got a sense for naming conventions in the Vapor library by now? You should, it's all about how data can be represented that ensure the kind of guarantees we need. Each `xxxxxRepresentable` ensures that the object can behave in ways that the library expects. In this case, `ResponseRepresentable` ensures that we can have a `Response` object, which is directly analogous to an `HTTP` response we'd get in Postman or an `HTTPURLResponse` object in Swift. 
 
