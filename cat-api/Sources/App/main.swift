@@ -92,24 +92,49 @@ drop.get("cat-node") { request in
 // MARK: POST
 drop.post("log-cat") { request in
   // what in request would contain our HTTPBody info that we're passing in from Postman?
-  
-  guard let cat = request.json?["name"]?.string else {
-    throw Abort.custom(status: .badRequest, message: "Request did not have key: name")
-  }
-  
+
   // 1. Finish the post request by filling out the rest of the keys needed to make a Cat
   //  - create an instance of Cat
   //  - have a return response to let a user know that their post was successful
+  guard
+    let catName = request.json?["name"]?.string,
+    let catBreed = request.json?["breed"]?.string,
+    let catSnack = request.json?["preferedSnack"]?.string
+  else {
+    throw Abort.custom(status: .badRequest, message: "Request did not have required keys (name, breed, preferedSnack")
+  }
+  
+  let newCat = Cat(name: catName, breed: catBreed, snack: catSnack)
   
   // 2. Modify the post request to send in an array and/or dict of Cats json
   //  - change how you parse the cats
   //  - create the array of new Cat objects
   //  - have a return response to let a user know that their post was successful
-  
-  return "You're posting a kitten: \(cat)"
+  //  (see below)
+  return "Success! \(newCat.name!) has been logged."
 }
 
-
+drop.post("multi-cats") { request in
+  
+  guard let catJSONArray = request.json?["cats"]?.array else {
+    throw Abort.badRequest
+  }
+  
+  var postedCats: Array<Cat> = []
+  for cat in catJSONArray {
+    guard let catName = cat.object?["name"]?.string,
+          let catBreed = cat.object?["breed"]?.string,
+          let catSnack = cat.object?["preferedSnack"]?.string
+    else {
+      throw Abort.badRequest
+    }
+    
+    let newCat = Cat(name: catName, breed: catBreed, snack: catSnack)
+    postedCats.append(newCat)
+  }
+  
+  return "Successfully posted some cats!: \(postedCats.map{ $0.name })"
+}
 
 
 drop.run()
