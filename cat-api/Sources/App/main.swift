@@ -79,11 +79,37 @@ drop.get("all-cats-string", ":cat-breed") { (request: Request) in
 
 // MARK: Node Endpoint
 drop.get("cat-node") { request in
+  
   let newCat = Cat(name: "Miley", breed: "American Shorthair", snack: "Salmon")
-  let catNode = try newCat.makeNode()
-
-  return "The cat: \(catNode)"
+//  let catJSON = try newCat.makeNode()
+//  let catJSON = try newCat.makeJSON()
+//  return try newCat.makeJSON() // catJSON
+  
+  // .makeReponse() call returns type Response with is a HTTPURLResponse
+  return try newCat.makeResponse()
 }
+
+// MARK: POST
+drop.post("log-cat") { request in
+  // what in request would contain our HTTPBody info that we're passing in from Postman?
+  
+  guard let cat = request.json?["name"]?.string else {
+    throw Abort.custom(status: .badRequest, message: "Request did not have key: name")
+  }
+  
+  // 1. Finish the post request by filling out the rest of the keys needed to make a Cat
+  //  - create an instance of Cat
+  //  - have a return response to let a user know that their post was successful
+  
+  // 2. Modify the post request to send in an array and/or dict of Cats json
+  //  - change how you parse the cats
+  //  - create the array of new Cat objects
+  //  - have a return response to let a user know that their post was successful
+  
+  return "You're posting a kitten: \(cat)"
+}
+
+
 
 
 drop.run()
