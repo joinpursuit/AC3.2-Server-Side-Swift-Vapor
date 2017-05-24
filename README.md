@@ -1,5 +1,5 @@
 # Server Side Swift w/ Vapor
-An intro to Server Side Swift using Vapor
+An intro to Server Side Swift using Vapor *(Note: This is based on Vapor v1.5)*
 ---
 
 ### Pre-Requisites
